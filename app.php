@@ -99,7 +99,7 @@ function showAssetClasses(Portfolio $portfolio) {
         $data[] = [
             'name'              => $assetClass->getName(),
             'targetAllocation'  => $assetClass->getTargetAllocation() * 100,
-            'currentAllocation' => $currentValue / $portfolio->getHoldingsValue() * 100,
+            'currentAllocation' => $currentValue / $portfolio->getHoldingsValue(),
             'currentValue'      => $currentValue,
         ];
 
@@ -109,10 +109,10 @@ function showAssetClasses(Portfolio $portfolio) {
     $table = new CliTable;
     $table->setTableColor('blue');
     $table->setHeaderColor('cyan');
-    $table->addField('Asset Class',        'name',              false                             , 'white');
-    $table->addField('Target Allocation',  'targetAllocation',  new CliTableManipulator('percent'), 'white');
-    $table->addField('Current Allocation', 'currentAllocation', new CliTableManipulator('percent'), 'white');
-    $table->addField('Current Value',      'currentValue',      new CliTableManipulator('dollar'),  'white');
+    $table->addField('Asset Class',        'name',              false,                                           'white');
+    $table->addField('Target Allocation',  'targetAllocation',  new CliTableManipulator('percent'),              'white');
+    $table->addField('Current Allocation', 'currentAllocation', new \Gfreeau\Portfolio\CliTableManipulator('percent'), 'white');
+    $table->addField('Current Value',      'currentValue',      new CliTableManipulator('dollar'),               'white');
     $table->injectData($data);
     $table->display();
 }
@@ -152,7 +152,7 @@ function showAllHoldings(Portfolio $portfolio) {
             'quantity'          => $holding->getQuantity(),
             'price'             => $holding->getPrice(),
             'value'             => $holding->getValue(),
-            'currentAllocation' => $holding->getValue() / $portfolio->getHoldingsValue() * 100,
+            'currentAllocation' => $holding->getValue() / $portfolio->getHoldingsValue(),
         ];
     }
 
@@ -167,12 +167,12 @@ function showAllHoldings(Portfolio $portfolio) {
     $table = new CliTable;
     $table->setTableColor('blue');
     $table->setHeaderColor('cyan');
-    $table->addField('Holding',            'holding',           false,                              'white');
-    $table->addField('Asset Class',        'assetClass',        false,                              'white');
-    $table->addField('Quantity',           'quantity',          false,                              'white');
-    $table->addField('Price',              'price',             new CliTableManipulator('dollar'),  'white');
-    $table->addField('Value',              'value',             new CliTableManipulator('dollar'),  'white');
-    $table->addField('Current Allocation', 'currentAllocation', new CliTableManipulator('percent'), 'white');
+    $table->addField('Holding',            'holding',           false,                                           'white');
+    $table->addField('Asset Class',        'assetClass',        false,                                           'white');
+    $table->addField('Quantity',           'quantity',          false,                                           'white');
+    $table->addField('Price',              'price',             new CliTableManipulator('dollar'),               'white');
+    $table->addField('Value',              'value',             new CliTableManipulator('dollar'),               'white');
+    $table->addField('Current Allocation', 'currentAllocation', new \Gfreeau\Portfolio\CliTableManipulator('percent'), 'white');
     $table->injectData($data);
     $table->display();
 }
