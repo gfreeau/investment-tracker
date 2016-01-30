@@ -22,7 +22,20 @@ class Account
 
     protected function addHolding(Holding $newHolding)
     {
-        $this->holdings[] = $newHolding;
+        if (array_key_exists($newHolding->getSymbol(), $this->holdings)) {
+            /** @var Holding $existingHolding */
+            $existingHolding = $this->holdings[$newHolding->getSymbol()];
+
+            $this->holdings[$newHolding->getSymbol()] = new Holding(
+                $existingHolding->getAssetClass(),
+                $existingHolding->getName(),
+                $existingHolding->getSymbol(),
+                $existingHolding->getQuantity() + $newHolding->getQuantity(),
+                $existingHolding->getPrice()
+            );
+        } else {
+            $this->holdings[$newHolding->getSymbol()] = $newHolding;
+        }
 
         $this->holdingsValue += $newHolding->getValue();
     }
