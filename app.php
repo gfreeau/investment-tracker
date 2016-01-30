@@ -7,33 +7,63 @@ use Gfreeau\Portfolio\Holding;
 use Gfreeau\Portfolio\Portfolio;
 use jc21\CliTable;
 use jc21\CliTableManipulator;
+use Ulrichsg\Getopt\Getopt;
+use Ulrichsg\Getopt\Option;
 
-function appError(string $message): void {
+$getopt = new Getopt(array(
+    (new Option('c', 'config', Getopt::REQUIRED_ARGUMENT))->setDefaultValue('config/config.json'),
+    (new Option(null, 'contribution-config', Getopt::REQUIRED_ARGUMENT)),
+    (new Option('h', 'help')),
+));
+
+$getopt->parse();
+
+if ($getopt->getOption('help')) {
+    echo $getopt->getHelpText();
+    exit(0);
+}
+
+function appError(string $message) {
     echo trim($message) . '\n';
     exit(1);
 }
 
-$config = json_decode(file_get_contents('config/config.json'), true);
+function getConfig($configFile) {
+    if (!file_exists($configFile)) {
+        appError(sprintf('config file "%s" does not exist', $configFile));
+    }
 
-if (json_last_error() != JSON_ERROR_NONE) {
-    appError('Cannot load config. Please check that the JSON is valid');
+    $config = json_decode(file_get_contents($configFile), true);
+
+    if (json_last_error() != JSON_ERROR_NONE) {
+        appError('Cannot load config. Please check that the JSON is valid');
+    }
+
+    return $config;
 }
+
+$config = getConfig($getopt->getOption('config'));
 
 $processor = new \Gfreeau\Portfolio\Processor(
     new \Scheb\YahooFinanceApi\ApiClient()
 );
 
-$portfolio = $processor->process($config);
+if ($getopt->getOption('contribution-config')) {
+    $contributionConfig = getConfig($getopt->getOption('contribution-config'));
+    $portfolio = $processor->process($config, $contributionConfig);
+} else {
+    $portfolio = $processor->process($config);
+}
 
 function showTotals(Portfolio $portfolio) {
     $data = [
         [
-            'investment' => 'Cash',
-            'amount'     => $portfolio->getCashValue(),
-        ],
-        [
             'investment' => 'Holdings',
             'amount'     => $portfolio->getHoldingsValue(),
+        ],
+        [
+            'investment' => 'Cash',
+            'amount'     => $portfolio->getCashValue(),
         ],
         [
             'investment' => 'Total',
@@ -87,6 +117,31 @@ function showAssetClasses(Portfolio $portfolio) {
     $table->display();
 }
 
+function showAccounts(Portfolio $portfolio) {
+    $accounts = $portfolio->getAccounts();
+
+    $data = [];
+
+    foreach($accounts as $account) {
+        $data[] = [
+            'name'          => $account->getName(),
+            'holdingsValue' => $account->getHoldingsValue(),
+            'cashValue'     => $account->getCashValue(),
+            'totalValue'    => $account->getAccountValue(),
+        ];
+    }
+
+    $table = new CliTable;
+    $table->setTableColor('blue');
+    $table->setHeaderColor('cyan');
+    $table->addField('Account',       'name',         false                             , 'white');
+    $table->addField('Holdings Value', 'holdingsValue', new CliTableManipulator('dollar'),  'white');
+    $table->addField('Cash Value',     'cashValue',     new CliTableManipulator('dollar'),  'white');
+    $table->addField('Total Value',    'totalValue',    new CliTableManipulator('dollar'),  'white');
+    $table->injectData($data);
+    $table->display();
+}
+
 function showAllHoldings(Portfolio $portfolio) {
     $data = [];
 
@@ -95,6 +150,7 @@ function showAllHoldings(Portfolio $portfolio) {
             'holding'           => $holding->getName(),
             'assetClass'        => $holding->getAssetClass()->getName(),
             'quantity'          => $holding->getQuantity(),
+            'price'             => $holding->getPrice(),
             'value'             => $holding->getValue(),
             'currentAllocation' => $holding->getValue() / $portfolio->getHoldingsValue() * 100,
         ];
@@ -114,6 +170,7 @@ function showAllHoldings(Portfolio $portfolio) {
     $table->addField('Holding',            'holding',           false,                              'white');
     $table->addField('Asset Class',        'assetClass',        false,                              'white');
     $table->addField('Quantity',           'quantity',          false,                              'white');
+    $table->addField('Price',              'price',             new CliTableManipulator('dollar'),  'white');
     $table->addField('Value',              'value',             new CliTableManipulator('dollar'),  'white');
     $table->addField('Current Allocation', 'currentAllocation', new CliTableManipulator('percent'), 'white');
     $table->injectData($data);
@@ -122,4 +179,5 @@ function showAllHoldings(Portfolio $portfolio) {
 
 showTotals($portfolio);
 showAssetClasses($portfolio);
+showAccounts($portfolio);
 showAllHoldings($portfolio);

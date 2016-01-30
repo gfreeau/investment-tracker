@@ -45,7 +45,7 @@ class Portfolio
     /**
      * @return AssetClass[]
      */
-    public function getAssetClasses()
+    public function getAssetClasses(): array
     {
         return $this->assetClasses;
     }

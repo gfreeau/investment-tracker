@@ -20,10 +20,11 @@ class Account
         }
     }
 
-    protected function addHolding(Holding $holding)
+    protected function addHolding(Holding $newHolding)
     {
-        $this->holdings[] = $holding;
-        $this->holdingsValue += $holding->getValue();
+        $this->holdings[] = $newHolding;
+
+        $this->holdingsValue += $newHolding->getValue();
     }
 
     public function getName(): string

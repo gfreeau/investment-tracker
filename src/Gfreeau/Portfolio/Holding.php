@@ -6,11 +6,12 @@ class Holding
 {
     protected $assetClass;
     protected $name;
+    protected $symbol;
     protected $quantity;
     protected $price;
     protected $value;
 
-    public function __construct(AssetClass $assetClass, string $name, int $quantity, float $price)
+    public function __construct(AssetClass $assetClass, string $name, string $symbol, int $quantity, float $price)
     {
         if ($quantity < 0) {
             throw new \InvalidArgumentException("price must be greater than 0");
@@ -22,6 +23,7 @@ class Holding
 
         $this->assetClass = $assetClass;
         $this->name = $name;
+        $this->symbol = $symbol;
         $this->quantity = $quantity;
         $this->price = $price;
         $this->value = $this->quantity * $this->price;
@@ -35,6 +37,11 @@ class Holding
     public function getName(): string
     {
         return $this->name;
+    }
+
+    public function getSymbol(): string
+    {
+        return $this->symbol;
     }
 
     public function getQuantity(): int

@@ -2,7 +2,8 @@
     "name": "gfreeau/portfolio",
     "require": {
         "scheb/yahoo-finance-api": "^1.2",
-        "jc21/clitable": "^1.1"
+        "jc21/clitable": "^1.1",
+        "ulrichsg/getopt-php": "^2.3"
     },
     "autoload": {
         "psr-0": {
