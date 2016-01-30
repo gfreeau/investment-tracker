@@ -1,0 +1,108 @@
+{
+    "_readme": [
+        "This file locks the dependencies of your project to a known state",
+        "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#composer-lock-the-lock-file",
+        "This file is @generated automatically"
+    ],
+    "hash": "742b7467d4161e3e03afe0b4863d4748",
+    "content-hash": "82bd3c242f29c515e055d6b4178f5462",
+    "packages": [
+        {
+            "name": "jc21/clitable",
+            "version": "1.1",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/jc21/clitable.git",
+                "reference": "78ae39d213a4a5edc6ede1b36d18f60687d0dab0"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/jc21/clitable/zipball/78ae39d213a4a5edc6ede1b36d18f60687d0dab0",
+                "reference": "78ae39d213a4a5edc6ede1b36d18f60687d0dab0",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">=5.3.0"
+            },
+            "require-dev": {
+                "victorjonsson/markdowndocs": "dev-master"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-0": {
+                    "jc21": "src"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "BSD"
+            ],
+            "authors": [
+                {
+                    "name": "Jamie Curnow",
+                    "email": "jc@jc21.com"
+                }
+            ],
+            "description": "CLI Table output for PHP scripts",
+            "homepage": "https://github.com/jc21/clitable",
+            "keywords": [
+                "cli",
+                "command",
+                "line",
+                "table"
+            ],
+            "time": "2015-08-19 06:04:53"
+        },
+        {
+            "name": "scheb/yahoo-finance-api",
+            "version": "v1.2.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/scheb/yahoo-finance-api.git",
+                "reference": "950a90d1be65a1fdd5a3a9182eb1c0a427ecb79d"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/scheb/yahoo-finance-api/zipball/950a90d1be65a1fdd5a3a9182eb1c0a427ecb79d",
+                "reference": "950a90d1be65a1fdd5a3a9182eb1c0a427ecb79d",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">=5.3.0"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Scheb\\YahooFinanceApi\\": ""
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Christian Scheb",
+                    "email": "me@christianscheb.de"
+                }
+            ],
+            "description": "PHP library for accessing Yahoo Finance data",
+            "homepage": "https://github.com/scheb/yahoo-finance-api",
+            "keywords": [
+                "api",
+                "finance",
+                "stock",
+                "yahoo"
+            ],
+            "time": "2015-09-29 18:37:36"
+        }
+    ],
+    "packages-dev": [],
+    "aliases": [],
+    "minimum-stability": "stable",
+    "stability-flags": [],
+    "prefer-stable": false,
+    "prefer-lowest": false,
+    "platform": [],
+    "platform-dev": []
+}

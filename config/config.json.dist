@@ -1,0 +1,32 @@
+{
+    "assetClasses": {
+        "US Equity": "0.35",
+        "International Equity": "0.25",
+        "Fixed Income": "0.40"
+    },
+    "accounts": {
+        "Retirement": {
+            "cash": "0.00",
+            "holdings": [
+                {
+                    "name": "VTI",
+                    "symbol": "VTI",
+                    "quantity": 100,
+                    "assetClass": "US Equity"
+                },
+                {
+                    "name": "VEU",
+                    "symbol": "VEU",
+                    "quantity": 100,
+                    "assetClass": "International Equity"
+                },
+                {
+                    "name": "BND",
+                    "symbol": "BND",
+                    "quantity": 100,
+                    "assetClass": "Fixed Income"
+                }
+            ]
+        }
+    }
+}
