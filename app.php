@@ -114,10 +114,10 @@ function showAssetClasses(Portfolio $portfolio) {
     $table = new CliTable;
     $table->setTableColor('blue');
     $table->setHeaderColor('cyan');
-    $table->addField('Asset Class',        'name',              false,                                           'white');
-    $table->addField('Target Allocation',  'targetAllocation',  new CliTableManipulator('percent'),              'white');
+    $table->addField('Asset Class',        'name',              false,                                                 'white');
+    $table->addField('Target Allocation',  'targetAllocation',  new CliTableManipulator('percent'),                    'white');
     $table->addField('Current Allocation', 'currentAllocation', new \Gfreeau\Portfolio\CliTableManipulator('percent'), 'white');
-    $table->addField('Current Value',      'currentValue',      new CliTableManipulator('dollar'),               'white');
+    $table->addField('Current Value',      'currentValue',      new CliTableManipulator('dollar'),                     'white');
     $table->injectData($data);
     $table->display();
 }
@@ -139,10 +139,10 @@ function showAccounts(Portfolio $portfolio) {
     $table = new CliTable;
     $table->setTableColor('blue');
     $table->setHeaderColor('cyan');
-    $table->addField('Account',       'name',         false                             , 'white');
-    $table->addField('Holdings Value', 'holdingsValue', new CliTableManipulator('dollar'),  'white');
-    $table->addField('Cash Value',     'cashValue',     new CliTableManipulator('dollar'),  'white');
-    $table->addField('Total Value',    'totalValue',    new CliTableManipulator('dollar'),  'white');
+    $table->addField('Account',        'name',          false                            , 'white');
+    $table->addField('Holdings Value', 'holdingsValue', new CliTableManipulator('dollar'), 'white');
+    $table->addField('Cash Value',     'cashValue',     new CliTableManipulator('dollar'), 'white');
+    $table->addField('Total Value',    'totalValue',    new CliTableManipulator('dollar'), 'white');
     $table->injectData($data);
     $table->display();
 }
@@ -165,18 +165,26 @@ function showAllHoldings(Portfolio $portfolio) {
         return $assetClass->getName();
     }, $portfolio->getAssetClasses()));
 
+    // order by asset class as defined in the config and then by price
     usort($data, function($a, $b) use($assetClassNames) {
-        return $assetClassNames[$a['assetClass']] <=> $assetClassNames[$b['assetClass']];
+        $orderByAssetClass = $assetClassNames[$a['assetClass']] <=> $assetClassNames[$b['assetClass']];
+
+        if ($orderByAssetClass !== 0) {
+            return $orderByAssetClass;
+        }
+
+        // asset class is the same, compare price
+        return $b['value'] <=> $a['value'];
     });
 
     $table = new CliTable;
     $table->setTableColor('blue');
     $table->setHeaderColor('cyan');
-    $table->addField('Holding',            'holding',           false,                                           'white');
-    $table->addField('Asset Class',        'assetClass',        false,                                           'white');
-    $table->addField('Quantity',           'quantity',          false,                                           'white');
-    $table->addField('Price',              'price',             new CliTableManipulator('dollar'),               'white');
-    $table->addField('Value',              'value',             new CliTableManipulator('dollar'),               'white');
+    $table->addField('Holding',            'holding',           false,                                                 'white');
+    $table->addField('Asset Class',        'assetClass',        false,                                                 'white');
+    $table->addField('Quantity',           'quantity',          false,                                                 'white');
+    $table->addField('Price',              'price',             new CliTableManipulator('dollar'),                     'white');
+    $table->addField('Value',              'value',             new CliTableManipulator('dollar'),                     'white');
     $table->addField('Current Allocation', 'currentAllocation', new \Gfreeau\Portfolio\CliTableManipulator('percent'), 'white');
     $table->injectData($data);
     $table->display();
