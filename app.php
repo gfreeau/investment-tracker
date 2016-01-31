@@ -24,7 +24,7 @@ if ($getopt->getOption('help')) {
 }
 
 function appError(string $message) {
-    echo trim($message) . '\n';
+    echo trim($message) . "\n";
     exit(1);
 }
 
@@ -50,7 +50,12 @@ $processor = new \Gfreeau\Portfolio\Processor(
 
 if ($getopt->getOption('contribution-config')) {
     $contributionConfig = getConfig($getopt->getOption('contribution-config'));
-    $portfolio = $processor->process($config, $contributionConfig);
+
+    try {
+        $portfolio = $processor->process($config, $contributionConfig);
+    } catch (\Gfreeau\Portfolio\Exception\ContributionExceededException $e) {
+        appError($e->getMessage());
+    }
 } else {
     $portfolio = $processor->process($config);
 }
