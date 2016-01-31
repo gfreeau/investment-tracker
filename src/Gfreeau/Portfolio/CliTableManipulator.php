@@ -8,6 +8,13 @@ class CliTableManipulator extends BaseCliTableManipulator
 {
     public function percent($value)
     {
-        return sprintf('%4.2f', $value * 100) . '%';
+        $value *= 100;
+
+        if ($value == intval($value)) {
+            // no need to show the .00
+            return $value . '%';
+        }
+
+        return sprintf('%4.2f', $value) . '%';
     }
 }

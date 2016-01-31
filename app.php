@@ -103,7 +103,7 @@ function showAssetClasses(Portfolio $portfolio) {
 
         $data[] = [
             'name'              => $assetClass->getName(),
-            'targetAllocation'  => $assetClass->getTargetAllocation() * 100,
+            'targetAllocation'  => $assetClass->getTargetAllocation(),
             'currentAllocation' => $currentValue / $portfolio->getHoldingsValue(),
             'currentValue'      => $currentValue,
         ];
@@ -115,7 +115,7 @@ function showAssetClasses(Portfolio $portfolio) {
     $table->setTableColor('blue');
     $table->setHeaderColor('cyan');
     $table->addField('Asset Class',        'name',              false,                                                 'white');
-    $table->addField('Target Allocation',  'targetAllocation',  new CliTableManipulator('percent'),                    'white');
+    $table->addField('Target Allocation',  'targetAllocation',  new \Gfreeau\Portfolio\CliTableManipulator('percent'), 'white');
     $table->addField('Current Allocation', 'currentAllocation', new \Gfreeau\Portfolio\CliTableManipulator('percent'), 'white');
     $table->addField('Current Value',      'currentValue',      new CliTableManipulator('dollar'),                     'white');
     $table->injectData($data);
