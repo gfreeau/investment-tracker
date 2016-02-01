@@ -1,4 +1,4 @@
 .idea
 config/*
-!/config/config.json.dist
+!/config/*.json.dist
 vendor

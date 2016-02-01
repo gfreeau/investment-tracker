@@ -1,0 +1,15 @@
+{
+    "accounts": {
+        "Retirement": {
+            "contribution": 5000,
+            "holdings": [
+                {
+                    "name": "VTI",
+                    "symbol": "VTI",
+                    "quantity": 50,
+                    "assetClass": "US Equity"
+                }
+            ]
+        }
+    }
+}
