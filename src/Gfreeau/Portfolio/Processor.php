@@ -20,21 +20,24 @@ class Processor
     /**
      * @param array $config
      * @param array $contributionConfig
-     * @param array $priceConfig pass in a list of prices or we will get it from yahoo finance
+     * @param array $stockPrices pass in a list of prices or we will get it from yahoo finance
      * @return Portfolio
      */
-    public function process(array $config, array $contributionConfig = null, array $priceConfig = null): Portfolio
+    public function process(array $config, array $contributionConfig = null, array $stockPrices = null): Portfolio
     {
         $assetClasses = $this->processAssetClasses($config['assetClasses']);
 
         if ($contributionConfig) {
-            $config = $this->processContribution($config, $contributionConfig);
+            $config = $this->processContribution($config, $contributionConfig, $stockPrices);
         }
 
         $accountData = $config['accounts'];
 
         $symbols = $this->getAllStockSymbols($accountData);
-        $prices = empty($priceConfig) ? $this->getStockPrices($symbols) : $priceConfig;
+
+        if (empty($stockPrices)) {
+            $stockPrices = $this->getStockPrices($symbols);
+        }
 
         // make a copy for use with array_map
         $accounts = $accountData;
@@ -66,7 +69,7 @@ class Processor
                     $holding['name'],
                     $holding['symbol'],
                     $holding['quantity'],
-                    $prices[$holding['symbol']]
+                    $stockPrices[$holding['symbol']]
                 );
 
                 unset($holdingAssetClasses);
@@ -110,17 +113,21 @@ class Processor
     /**
      * @param array $config
      * @param array $contributionConfig
+     * @param array [$priceConfig]
      * @return array
      * @throws ContributionExceededException
      */
-    protected function processContribution(array $config, array $contributionConfig): array
+    protected function processContribution(array $config, array $contributionConfig, array $stockPrices = null): array
     {
         // reference is important
         $mainAccountData = &$config['accounts'];
         $contributionAccountData = $contributionConfig['accounts'];
 
         $symbols = $this->getAllStockSymbols($contributionAccountData);
-        $prices = $this->getStockPrices($symbols);
+
+        if (empty($stockPrices)) {
+            $stockPrices = $this->getStockPrices($symbols);
+        }
 
         foreach($contributionAccountData as $name => $account) {
             if (!array_key_exists($name, $mainAccountData)) {
@@ -132,7 +139,7 @@ class Processor
             $fees = 0;
 
             foreach($account['holdings'] as $holding) {
-                $cost += $holding['quantity'] * $prices[$holding['symbol']];
+                $cost += $holding['quantity'] * $stockPrices[$holding['symbol']];
                 $fees += $config['tradingFee'];
             }
 
