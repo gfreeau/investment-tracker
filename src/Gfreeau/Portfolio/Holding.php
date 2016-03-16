@@ -4,14 +4,22 @@ namespace Gfreeau\Portfolio;
 
 class Holding
 {
-    protected $assetClass;
+    protected $assetClassGroup;
     protected $name;
     protected $symbol;
     protected $quantity;
     protected $price;
     protected $value;
 
-    public function __construct(AssetClass $assetClass, string $name, string $symbol, int $quantity, float $price)
+    /**
+     * Holding constructor.
+     * @param AssetClassGroup $assetClassGroup
+     * @param string $name
+     * @param string $symbol
+     * @param int $quantity
+     * @param float $price
+     */
+    public function __construct(AssetClassGroup $assetClassGroup, string $name, string $symbol, int $quantity, float $price)
     {
         if ($quantity < 0) {
             throw new \InvalidArgumentException("price must be greater than 0");
@@ -21,7 +29,7 @@ class Holding
             throw new \InvalidArgumentException("price must be greater than 0");
         }
 
-        $this->assetClass = $assetClass;
+        $this->assetClassGroup = $assetClassGroup;
         $this->name = $name;
         $this->symbol = $symbol;
         $this->quantity = $quantity;
@@ -29,9 +37,9 @@ class Holding
         $this->value = $this->quantity * $this->price;
     }
 
-    public function getAssetClass(): AssetClass
+    public function getAssetClassGroup(): AssetClassGroup
     {
-        return $this->assetClass;
+        return $this->assetClassGroup;
     }
 
     public function getName(): string
@@ -57,5 +65,11 @@ class Holding
     public function getValue(): float
     {
         return $this->value;
+    }
+
+    public function getAssetClassValue(AssetClass $assetClass): float
+    {
+        $percentage = $this->assetClassGroup->getPercentage($assetClass);
+        return $this->getValue() * $percentage;
     }
 }

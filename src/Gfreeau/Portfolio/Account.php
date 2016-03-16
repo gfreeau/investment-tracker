@@ -27,7 +27,7 @@ class Account
             $existingHolding = $this->holdings[$newHolding->getSymbol()];
 
             $this->holdings[$newHolding->getSymbol()] = new Holding(
-                $existingHolding->getAssetClass(),
+                $existingHolding->getAssetClassGroup(),
                 $existingHolding->getName(),
                 $existingHolding->getSymbol(),
                 $existingHolding->getQuantity() + $newHolding->getQuantity(),

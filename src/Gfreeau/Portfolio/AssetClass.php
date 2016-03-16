@@ -29,4 +29,9 @@ class AssetClass
     {
         return $this->targetAllocation;
     }
+
+    public function __toString(): string
+    {
+        return $this->getName();
+    }
 }

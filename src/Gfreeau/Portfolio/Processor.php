@@ -20,9 +20,10 @@ class Processor
     /**
      * @param array $config
      * @param array $contributionConfig
+     * @param array $priceConfig pass in a list of prices or we will get it from yahoo finance
      * @return Portfolio
      */
-    public function process(array $config, array $contributionConfig = null): Portfolio
+    public function process(array $config, array $contributionConfig = null, array $priceConfig = null): Portfolio
     {
         $assetClasses = $this->processAssetClasses($config['assetClasses']);
 
@@ -33,7 +34,7 @@ class Processor
         $accountData = $config['accounts'];
 
         $symbols = $this->getAllStockSymbols($accountData);
-        $prices = $this->getStockPrices($symbols);
+        $prices = empty($priceConfig) ? $this->getStockPrices($symbols) : $priceConfig;
 
         // make a copy for use with array_map
         $accounts = $accountData;
@@ -41,14 +42,34 @@ class Processor
         // references are important
         foreach($accounts as $name => &$account) {
             foreach($account['holdings'] as &$holding) {
+                $holdingAssetClasses = [];
+
+                if (is_array($holding['assetClass'])) {
+                    foreach($holding['assetClass'] as $assetClassName => $percentage) {
+                        $holdingAssetClasses[] = [
+                            'assetClass' => $assetClasses[$assetClassName],
+                            'percentage' => (double) $percentage
+                        ];
+                    }
+
+                    unset($assetClassName, $percentage);
+                } else {
+                    $holdingAssetClasses[] = [
+                        'assetClass' => $assetClasses[$holding['assetClass']],
+                        'percentage' => 1.00
+                    ];
+                }
+
                 // overwrite value
                 $holding = new Holding(
-                    $assetClasses[$holding['assetClass']],
+                    new AssetClassGroup($holdingAssetClasses),
                     $holding['name'],
                     $holding['symbol'],
                     $holding['quantity'],
                     $prices[$holding['symbol']]
                 );
+
+                unset($holdingAssetClasses);
             }
 
             // overwrite value

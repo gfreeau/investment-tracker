@@ -13,6 +13,7 @@ use Ulrichsg\Getopt\Option;
 $getopt = new Getopt(array(
     (new Option('c', 'config', Getopt::REQUIRED_ARGUMENT))->setDefaultValue('config/config.json'),
     (new Option(null, 'contribution-config', Getopt::REQUIRED_ARGUMENT)),
+    (new Option(null, 'price-config', Getopt::REQUIRED_ARGUMENT)),
     (new Option('h', 'help')),
 ));
 
@@ -48,16 +49,13 @@ $processor = new \Gfreeau\Portfolio\Processor(
     new \Scheb\YahooFinanceApi\ApiClient()
 );
 
-if ($getopt->getOption('contribution-config')) {
-    $contributionConfig = getConfig($getopt->getOption('contribution-config'));
+$contributionConfig = $getopt->getOption('contribution-config') ? getConfig($getopt->getOption('contribution-config')) : null;
+$priceConfig = $getopt->getOption('price-config') ? getConfig($getopt->getOption('price-config')) : null;
 
-    try {
-        $portfolio = $processor->process($config, $contributionConfig);
-    } catch (\Gfreeau\Portfolio\Exception\ContributionExceededException $e) {
-        appError($e->getMessage());
-    }
-} else {
-    $portfolio = $processor->process($config);
+try {
+    $portfolio = $processor->process($config, $contributionConfig, $priceConfig);
+} catch (\Gfreeau\Portfolio\Exception\ContributionExceededException $e) {
+    appError($e->getMessage());
 }
 
 function showTotals(Portfolio $portfolio) {
@@ -93,12 +91,8 @@ function showAssetClasses(Portfolio $portfolio) {
     $data = [];
 
     foreach($assetClasses as $assetClass) {
-        $assetClassHoldings = array_filter($holdings, function(Holding $holding) use($assetClass) {
-            return $holding->getAssetClass() === $assetClass;
-        });
-
-        $currentValue = array_reduce($assetClassHoldings, function($value, Holding $holding) {
-            return $value + $holding->getValue();
+        $currentValue = array_reduce($holdings, function($value, Holding $holding) use($assetClass) {
+            return $value + $holding->getAssetClassValue($assetClass);
         }, 0);
 
         $data[] = [
@@ -107,8 +101,6 @@ function showAssetClasses(Portfolio $portfolio) {
             'currentAllocation' => $currentValue / $portfolio->getHoldingsValue(),
             'currentValue'      => $currentValue,
         ];
-
-        unset($assetClassHoldings);
     }
 
     $table = new CliTable;
@@ -153,7 +145,7 @@ function showAllHoldings(Portfolio $portfolio) {
     foreach ($portfolio->getAllHoldings() as $holding) {
         $data[] = [
             'holding'           => $holding->getName(),
-            'assetClass'        => $holding->getAssetClass()->getName(),
+            'symbol'            => $holding->getSymbol(),
             'quantity'          => $holding->getQuantity(),
             'price'             => $holding->getPrice(),
             'value'             => $holding->getValue(),
@@ -161,18 +153,7 @@ function showAllHoldings(Portfolio $portfolio) {
         ];
     }
 
-    $assetClassNames = array_flip(array_map(function(AssetClass $assetClass) {
-        return $assetClass->getName();
-    }, $portfolio->getAssetClasses()));
-
-    // order by asset class as defined in the config and then by price
-    usort($data, function($a, $b) use($assetClassNames) {
-        $orderByAssetClass = $assetClassNames[$a['assetClass']] <=> $assetClassNames[$b['assetClass']];
-
-        if ($orderByAssetClass !== 0) {
-            return $orderByAssetClass;
-        }
-
+    usort($data, function($a, $b) {
         // asset class is the same, compare price
         return $b['value'] <=> $a['value'];
     });
@@ -181,7 +162,7 @@ function showAllHoldings(Portfolio $portfolio) {
     $table->setTableColor('blue');
     $table->setHeaderColor('cyan');
     $table->addField('Holding',            'holding',           false,                                                 'white');
-    $table->addField('Asset Class',        'assetClass',        false,                                                 'white');
+    $table->addField('Symbol',             'symbol',            false,                                                 'white');
     $table->addField('Quantity',           'quantity',          false,                                                 'white');
     $table->addField('Price',              'price',             new CliTableManipulator('dollar'),                     'white');
     $table->addField('Value',              'value',             new CliTableManipulator('dollar'),                     'white');
