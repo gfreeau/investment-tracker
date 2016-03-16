@@ -58,6 +58,10 @@ try {
     appError($e->getMessage());
 }
 
+function getTitle($title) {
+    return chr(27).'[0;37m' . trim($title) . "\n" . chr(27).'[0m';
+}
+
 function showTotals(Portfolio $portfolio) {
     $data = [
         [
@@ -171,7 +175,39 @@ function showAllHoldings(Portfolio $portfolio) {
     $table->display();
 }
 
+function whatCouldIBuy(Portfolio $portfolio) {
+    echo getTitle("The table below shows how many shares can be purchased with available cash");
+
+    $data = [];
+
+    $accounts = $portfolio->getAccounts();
+
+    foreach ($portfolio->getAllHoldings() as $holding) {
+        $row = [
+            'symbol'            => $holding->getSymbol(),
+        ];
+
+        foreach($accounts as $account) {
+            $row[$account->getName()] = floor($account->getCashValue() / $holding->getPrice());
+        }
+
+        $data[] = $row;
+        unset($row);
+    }
+
+    $table = new CliTable;
+    $table->setTableColor('blue');
+    $table->setHeaderColor('cyan');
+    $table->addField('Symbol', 'symbol', false, 'white');
+    foreach($accounts as $account) {
+        $table->addField($account->getName(), $account->getName(), false, 'white');
+    }
+    $table->injectData($data);
+    $table->display();
+}
+
 showTotals($portfolio);
-showAssetClasses($portfolio);
 showAccounts($portfolio);
+whatCouldIBuy($portfolio);
+showAssetClasses($portfolio);
 showAllHoldings($portfolio);
