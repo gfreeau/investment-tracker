@@ -5,7 +5,8 @@
         "jc21/clitable": "^1.1",
         "ulrichsg/getopt-php": "^2.3",
         "symfony/config": "^3.0",
-        "symfony/yaml": "^3.0"
+        "symfony/yaml": "^3.0",
+        "jdorn/file-system-cache": "dev-master"
     },
     "autoload": {
         "psr-0": {

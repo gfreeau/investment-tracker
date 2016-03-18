@@ -9,13 +9,13 @@ use Scheb\YahooFinanceApi\ApiClient;
 class Processor
 {
     /**
-     * @var ApiClient
+     * @var StockPriceRetriever
      */
-    private $financeClient;
+    private $stockPriceRetriever;
 
-    public function __construct(ApiClient $financeClient)
+    public function __construct(StockPriceRetriever $stockPriceRetriever)
     {
-        $this->financeClient = $financeClient;
+        $this->stockPriceRetriever = $stockPriceRetriever;
     }
 
     /**
@@ -51,7 +51,7 @@ class Processor
             return $config['stocks'][$id]['symbol'];
         }, $stockIds);
 
-        $stockPrices = $this->getStockPrices($stockSymbols);
+        $stockPrices = $this->stockPriceRetriever->getStockPrices($stockSymbols);
 
         $processedAccounts = [];
 
@@ -154,7 +154,7 @@ class Processor
             return $config['stocks'][$id]['symbol'];
         }, $stockIds);
 
-        $stockPrices = $this->getStockPrices($stockSymbols);
+        $stockPrices = $this->stockPriceRetriever->getStockPrices($stockSymbols);
 
         foreach($rebalanceAccountList as $accountName => $account) {
             if (!array_key_exists($accountName, $mainAccountListRef)) {
@@ -231,31 +231,5 @@ class Processor
 
         // we used references to overwrite config properties
         return $portfolioConfig;
-    }
-
-    protected function getStockPrices(array $symbols): array {
-        $symbols = array_unique($symbols);
-
-        // todo check for API exception
-        $data = $this->getStockData($symbols)['query']['results']['quote'];
-
-        if (count($symbols) == 1) {
-            // need to make the data consistent regardless of if 1 stock or many is requested
-            $data = [$data];
-        }
-
-        $keys = array_map(function($stockData) {
-            return $stockData['Symbol'];
-        }, $data);
-
-        $values = array_map(function($stockData) {
-            return $stockData['LastTradePriceOnly'];
-        }, $data);
-
-        return array_combine($keys, $values);
-    }
-
-    protected function getStockData(array $symbols): array {
-        return $this->financeClient->getQuotesList($symbols);
     }
 }

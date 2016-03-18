@@ -9,6 +9,9 @@ use jc21\CliTableManipulator;
 use Ulrichsg\Getopt\Getopt;
 use Ulrichsg\Getopt\Option;
 
+const CACHE_STOCK_PRICE_KEY = 'stock_prices';
+const CACHE_STOCK_PRICE_TTL = 3600; // 1 hour
+
 $getopt = new Getopt(array(
     (new Option('c', 'config', Getopt::REQUIRED_ARGUMENT))->setDefaultValue('config/main.yml'),
     (new Option('p', 'portfolio-config', Getopt::REQUIRED_ARGUMENT)),
@@ -51,9 +54,28 @@ $portfolioConfig = getConfig(
     new \Gfreeau\Portfolio\Configuration\PortfolioConfiguration()
 );
 
-$processor = new \Gfreeau\Portfolio\Processor(
-    new \Scheb\YahooFinanceApi\ApiClient()
-);
+$stockPriceCacheKey = FileSystemCache::generateCacheKey(CACHE_STOCK_PRICE_KEY);
+$stockPrices = FileSystemCache::retrieve($stockPriceCacheKey);
+$shouldCacheStockPrices = false;
+
+if($stockPrices === false) {
+    $shouldCacheStockPrices = true;
+    $stockPrices = [];
+}
+
+$stockPriceRetriever = new \Gfreeau\Portfolio\StockPriceRetriever(new \Scheb\YahooFinanceApi\ApiClient(), $stockPrices);
+
+if ($shouldCacheStockPrices) {
+    $allStockSymbols = array_map(function(array $stock) {
+        return $stock['symbol'];
+    }, $config['stocks']);
+
+    $stockPrices = $stockPriceRetriever->getStockPrices($allStockSymbols); // warm up
+
+    FileSystemCache::store($stockPriceCacheKey, $stockPrices, CACHE_STOCK_PRICE_TTL);
+}
+
+$processor = new \Gfreeau\Portfolio\Processor($stockPriceRetriever);
 
 $rebalanceConfig = null;
 
