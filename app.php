@@ -2,7 +2,6 @@
 
 require 'vendor/autoload.php';
 
-use Gfreeau\Portfolio\AssetClass;
 use Gfreeau\Portfolio\Holding;
 use Gfreeau\Portfolio\Portfolio;
 use jc21\CliTable;
@@ -12,8 +11,8 @@ use Ulrichsg\Getopt\Option;
 
 $getopt = new Getopt(array(
     (new Option('c', 'config', Getopt::REQUIRED_ARGUMENT))->setDefaultValue('config/config.json'),
-    (new Option(null, 'rebalance-config', Getopt::REQUIRED_ARGUMENT)),
-    (new Option(null, 'price-config', Getopt::REQUIRED_ARGUMENT)),
+    (new Option('r', 'rebalance-config', Getopt::REQUIRED_ARGUMENT)),
+    (new Option('e', 'extra-config', Getopt::REQUIRED_ARGUMENT)),
     (new Option('h', 'help')),
 ));
 
@@ -29,31 +28,48 @@ function appError(string $message) {
     exit(1);
 }
 
-function getConfig($configFile) {
+function getConfig($configFile, Symfony\Component\Config\Definition\ConfigurationInterface $configuration) {
     if (!file_exists($configFile)) {
         appError(sprintf('config file "%s" does not exist', $configFile));
     }
 
-    $config = json_decode(file_get_contents($configFile), true);
+    $processor = new Symfony\Component\Config\Definition\Processor();
 
-    if (json_last_error() != JSON_ERROR_NONE) {
-        appError('Cannot load config. Please check that the JSON is valid');
-    }
-
-    return $config;
+    return $processor->processConfiguration(
+        $configuration,
+        Symfony\Component\Yaml\Yaml::parse(file_get_contents($configFile))
+    );
 }
 
-$config = getConfig($getopt->getOption('config'));
+$config = getConfig(
+    $getopt->getOption('config'),
+    new \Gfreeau\Portfolio\Configuration\PortfolioConfiguration()
+);
 
 $processor = new \Gfreeau\Portfolio\Processor(
     new \Scheb\YahooFinanceApi\ApiClient()
 );
 
-$rebalanceConfig = $getopt->getOption('rebalance-config') ? getConfig($getopt->getOption('rebalance-config')) : null;
-$priceConfig = $getopt->getOption('price-config') ? getConfig($getopt->getOption('price-config')) : null;
+$rebalanceConfig = null;
+
+if ($getopt->getOption('rebalance-config')) {
+    $rebalanceConfig = getConfig(
+        $getopt->getOption('rebalance-config'),
+        new \Gfreeau\Portfolio\Configuration\RebalanceConfiguration()
+    );
+}
+
+$extraConfig = null;
+
+if ($getopt->getOption('extra-config')) {
+    $extraConfig = getConfig(
+        $getopt->getOption('extra-config'),
+        new \Gfreeau\Portfolio\Configuration\ExtraConfiguration()
+    );
+}
 
 try {
-    $portfolio = $processor->process($config, $rebalanceConfig, $priceConfig);
+    $portfolio = $processor->process($config, $rebalanceConfig, $extraConfig['prices']);
 } catch (\Gfreeau\Portfolio\Exception\NotEnoughFundsException $e) {
     appError($e->getMessage());
 }

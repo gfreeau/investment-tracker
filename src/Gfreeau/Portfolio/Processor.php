@@ -28,7 +28,7 @@ class Processor
     {
         // todo validate config
 
-        $assetClasses = $this->processAssetClasses($config['assetClasses']);
+        $processedAssetClasses = $this->processAssetClasses($config['assetClasses']);
 
         if ($rebalanceConfig) {
             $config = $this->processRebalance($config, $rebalanceConfig, $stockPrices);
@@ -36,24 +36,37 @@ class Processor
 
         $accountData = $config['accounts'];
 
-        $symbols = $this->getAllStockSymbols($accountData);
+        $stockSymbols = [];
 
-        if (empty($stockPrices)) {
-            $stockPrices = $this->getStockPrices($symbols);
+        foreach($accountData as $account) {
+            $stockSymbols = array_merge($stockSymbols, array_keys($account['holdings']));
+            unset($account);
         }
 
-        // make a copy for use with array_map
-        $accounts = $accountData;
+        $missingSymbols = array_diff($stockSymbols, array_keys($config['shares']));
 
-        // references are important
-        foreach($accounts as $name => &$account) {
-            foreach($account['holdings'] as &$holding) {
+        if (count($missingSymbols) > 0) {
+            throw new BadConfigurationException(sprintf('Missing data for stocks: %s', join(', ', $missingSymbols)));
+        }
+
+        if (empty($stockPrices)) {
+            $stockPrices = $this->getStockPrices($stockSymbols);
+        }
+
+        $processedAccounts = [];
+
+        foreach($accountData as $accountName => $account) {
+            $processedHoldings = [];
+
+            foreach($account['holdings'] as $holdingId => $quantity) {
                 $holdingAssetClasses = [];
+
+                $holding = $config['shares'][$holdingId];
 
                 if (is_array($holding['assetClass'])) {
                     foreach($holding['assetClass'] as $assetClassName => $percentage) {
                         $holdingAssetClasses[] = [
-                            'assetClass' => $assetClasses[$assetClassName],
+                            'assetClass' => $processedAssetClasses[$assetClassName],
                             'percentage' => (double) $percentage
                         ];
                     }
@@ -61,34 +74,32 @@ class Processor
                     unset($assetClassName, $percentage);
                 } else {
                     $holdingAssetClasses[] = [
-                        'assetClass' => $assetClasses[$holding['assetClass']],
+                        'assetClass' => $processedAssetClasses[$holding['assetClass']],
                         'percentage' => 1.00
                     ];
                 }
 
-                // overwrite value
-                $holding = new Holding(
+                $processedHoldings[] = new Holding(
                     new AssetClassGroup($holdingAssetClasses),
                     $holding['name'],
                     $holding['symbol'],
-                    $holding['quantity'],
+                    $quantity,
                     $stockPrices[$holding['symbol']]
                 );
 
-                unset($holdingAssetClasses);
+                unset($holdingAssetClasses, $holding, $holdingId, $quantity);
             }
 
-            // overwrite value
-            $account = new Account(
-                $name,
+            $processedAccounts[] = new Account(
+                $accountName,
                 $account['cash'],
-                $account['holdings']
+                $processedHoldings
             );
 
-            unset($name, $account, $holding);
+            unset($accountName, $account, $processedHoldings);
         }
 
-        return new Portfolio($assetClasses, $accounts);
+        return new Portfolio($processedAssetClasses, $processedAccounts);
     }
 
     protected function processAssetClasses(array $assetClasses): array
@@ -123,115 +134,103 @@ class Processor
      */
     protected function processRebalance(array $config, array $rebalanceConfig, array $stockPrices = null): array
     {
-        // todo refactor this monolith
+        $config['shares'] = array_merge_recursive($config['shares'], $rebalanceConfig['shares']);
 
-        $rebalanceDefaults = [
-            'contribution' => 0,
-            'holdings' => [],
-            'sellHoldings' => [],
-        ];
+        $mainAccountListRef = &$config['accounts'];
+        $rebalanceAccountList = $rebalanceConfig['accounts'];
 
-        $rebalanceConfig = array_merge($rebalanceDefaults, $rebalanceConfig);
+        $stockSymbols = [];
 
-        if (!is_array($rebalanceConfig['holdings'])) {
-            throw new BadConfigurationException('holdings must be an array');
+        foreach($rebalanceAccountList as $account) {
+            $stockSymbols = array_merge($stockSymbols, array_keys($account['buyHoldings']), $account['sellHoldings']);
+            unset($account);
         }
 
-        if (!is_array($rebalanceConfig['sellHoldings'])) {
-            throw new BadConfigurationException('sellHoldings must be an array');
+        $missingSymbols = array_diff($stockSymbols, array_keys($config['shares']));
+
+        if (count($missingSymbols) > 0) {
+            throw new BadConfigurationException(sprintf('Missing data for stocks: %s', join(', ', $missingSymbols)));
         }
-
-        // reference is important
-        $mainAccountData = &$config['accounts'];
-        $rebalanceAccountData = $rebalanceConfig['accounts'];
-
-        $symbols = array_merge(
-            $this->getAllStockSymbols($mainAccountData),
-            $this->getAllStockSymbols($rebalanceAccountData)
-        );
 
         if (empty($stockPrices)) {
-            $stockPrices = $this->getStockPrices($symbols);
+            $stockPrices = $this->getStockPrices($stockSymbols);
         }
 
-        foreach($rebalanceAccountData as $name => $account) {
-            if (!array_key_exists($name, $mainAccountData)) {
+        foreach($rebalanceAccountList as $accountName => $account) {
+            if (!array_key_exists($accountName, $mainAccountListRef)) {
                 continue;
             }
 
-            // reference is important
-            $mainAccount = &$mainAccountData[$name];
+            $mainAccountRef = &$mainAccountListRef[$accountName];
 
-            if (!array_key_exists('cash', $mainAccount)) {
-                $mainAccount['cash'] = 0;
+            if (!array_key_exists('cash', $mainAccountRef)) {
+                $mainAccountRef['cash'] = 0;
             }
 
-            $cashBalance = $mainAccount['cash'];
+            $cashBalance = $mainAccountRef['cash'];
             $cashBalance += $account['contribution'];
 
+            $cost = 0;
             $fees = 0;
 
             if (!empty($account['sellHoldings'])) {
-                $currentHoldings = array_column($mainAccount['holdings'], 'symbol');
+                $currentHoldings = array_keys($mainAccountRef['holdings']);
                 $holdingsToSell = [];
                 $sellValue = 0;
 
-                foreach($account['sellHoldings'] as $sellHolding) {
-                    $holdingKey = array_search($sellHolding['symbol'], $currentHoldings);
-
-                    if ($holdingKey === false) {
-                        continue;
+                foreach($account['sellHoldings'] as $holdingId) {
+                    if (!isset($mainAccountRef['holdings'][$holdingId])) {
+                        throw new BadConfigurationException(sprintf('%s does not exist in account %s', $holdingId, $accountName));
                     }
 
-                    $holding = $mainAccount['holdings'][$holdingKey];
+                    $quantity = $mainAccountRef['holdings'][$holdingId];
+                    $symbol = $config['shares'][$holdingId]['symbol'];
 
                     // todo support selling some shares but not all
-                    $sellValue += $holding['quantity'] * $stockPrices[$sellHolding['symbol']];
+                    $sellValue += $quantity * $stockPrices[$symbol];
                     $fees += $config['tradingFee'];
 
-                    $holdingsToSell[] = $holdingKey;
+                    $holdingsToSell[] = $holdingId;
+
+                    unset($holdingId, $quantity, $symbol);
                 }
 
-                $mainAccount['holdings'] = array_diff_key($mainAccount['holdings'], array_flip($holdingsToSell));
+                $mainAccountRef['holdings'] = array_diff_key($mainAccountRef['holdings'], array_flip($holdingsToSell));
                 $cashBalance += $sellValue;
 
-                unset($currentHoldings, $holdingsToSell, $sellValue, $holdingKey, $holding);
+                unset($currentHoldings, $holdingsToSell, $sellValue);
             }
 
-            $cost = 0;
-
-            foreach($account['holdings'] as $holding) {
-                $cost += $holding['quantity'] * $stockPrices[$holding['symbol']];
+            foreach($account['buyHoldings'] as $holdingId => $quantity) {
+                $cost += $quantity * $stockPrices[$config['shares'][$holdingId]['symbol']];
                 $fees += $config['tradingFee'];
+
+                unset($holdingId, $quantity);
             }
 
             $cost += $fees;
 
             if ($cost > $cashBalance) {
-                throw new NotEnoughFundsException(sprintf('The cost of $%4.2f exceeds the available cash of $%4.2f in the "%s" account', $cost, $cashBalance, $name));
+                throw new NotEnoughFundsException(sprintf('The cost of $%4.2f exceeds the available cash of $%4.2f in the "%s" account', $cost, $cashBalance, $accountName));
             }
 
             $cashBalance -= $cost;
 
-            $mainAccount['cash'] = $cashBalance;
+            $mainAccountRef['cash'] = $cashBalance;
 
-            $mainAccount['holdings'] = array_merge($mainAccount['holdings'], $account['holdings']);
+            foreach($account['buyHoldings'] as $holdingId => $quantity) {
+                if (!isset($mainAccountRef['holdings'][$holdingId])) {
+                    $mainAccountRef['holdings'][$holdingId] = 0;
+                }
+
+                $mainAccountRef['holdings'][$holdingId] += $quantity;
+
+                unset($holdingId, $quantity);
+            }
         }
 
+        // we used references to overwrite config properties
         return $config;
-    }
-
-    protected function getAllStockSymbols(array $accounts): array
-    {
-        $symbols = [];
-
-        foreach($accounts as $account) {
-            $symbols = array_merge($symbols, array_map(function($holding) {
-                return $holding['symbol'];
-            }, $account['holdings']));
-        }
-
-        return $symbols;
     }
 
     protected function getStockPrices(array $symbols): array {
