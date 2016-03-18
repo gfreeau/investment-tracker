@@ -145,7 +145,10 @@ class Processor
         $mainAccountData = &$config['accounts'];
         $rebalanceAccountData = $rebalanceConfig['accounts'];
 
-        $symbols = $this->getAllStockSymbols($rebalanceAccountData);
+        $symbols = array_merge(
+            $this->getAllStockSymbols($mainAccountData),
+            $this->getAllStockSymbols($rebalanceAccountData)
+        );
 
         if (empty($stockPrices)) {
             $stockPrices = $this->getStockPrices($symbols);
