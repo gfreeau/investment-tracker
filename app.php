@@ -10,9 +10,9 @@ use Ulrichsg\Getopt\Getopt;
 use Ulrichsg\Getopt\Option;
 
 $getopt = new Getopt(array(
-    (new Option('c', 'config', Getopt::REQUIRED_ARGUMENT))->setDefaultValue('config/config.json'),
+    (new Option('c', 'config', Getopt::REQUIRED_ARGUMENT))->setDefaultValue('config/main.yml'),
+    (new Option('p', 'portfolio-config', Getopt::REQUIRED_ARGUMENT)),
     (new Option('r', 'rebalance-config', Getopt::REQUIRED_ARGUMENT)),
-    (new Option('e', 'extra-config', Getopt::REQUIRED_ARGUMENT)),
     (new Option('h', 'help')),
 ));
 
@@ -43,6 +43,11 @@ function getConfig($configFile, Symfony\Component\Config\Definition\Configuratio
 
 $config = getConfig(
     $getopt->getOption('config'),
+    new \Gfreeau\Portfolio\Configuration\MainConfiguration()
+);
+
+$portfolioConfig = getConfig(
+    $getopt->getOption('portfolio-config'),
     new \Gfreeau\Portfolio\Configuration\PortfolioConfiguration()
 );
 
@@ -59,17 +64,8 @@ if ($getopt->getOption('rebalance-config')) {
     );
 }
 
-$extraConfig = null;
-
-if ($getopt->getOption('extra-config')) {
-    $extraConfig = getConfig(
-        $getopt->getOption('extra-config'),
-        new \Gfreeau\Portfolio\Configuration\ExtraConfiguration()
-    );
-}
-
 try {
-    $portfolio = $processor->process($config, $rebalanceConfig, $extraConfig['prices']);
+    $portfolio = $processor->process($config, $portfolioConfig, $rebalanceConfig);
 } catch (\Gfreeau\Portfolio\Exception\NotEnoughFundsException $e) {
     appError($e->getMessage());
 }

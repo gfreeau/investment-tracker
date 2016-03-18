@@ -20,38 +20,38 @@ class Processor
 
     /**
      * @param array $config
+     * @param array $portfolioConfig
      * @param array $rebalanceConfig
-     * @param array $stockPrices pass in a list of prices or we will get it from yahoo finance
      * @return Portfolio
      */
-    public function process(array $config, array $rebalanceConfig = null, array $stockPrices = null): Portfolio
+    public function process(array $config, array $portfolioConfig, array $rebalanceConfig = null): Portfolio
     {
-        // todo validate config
-
-        $processedAssetClasses = $this->processAssetClasses($config['assetClasses']);
-
         if ($rebalanceConfig) {
-            $config = $this->processRebalance($config, $rebalanceConfig, $stockPrices);
+            $portfolioConfig = $this->processRebalance($config, $portfolioConfig, $rebalanceConfig);
         }
 
-        $accountData = $config['accounts'];
+        $processedAssetClasses = $this->processAssetClasses($portfolioConfig['assetClasses']);
 
-        $stockSymbols = [];
+        $accountData = $portfolioConfig['accounts'];
+
+        $stockIds = [];
 
         foreach($accountData as $account) {
-            $stockSymbols = array_merge($stockSymbols, array_keys($account['holdings']));
+            $stockIds = array_merge($stockIds, array_keys($account['holdings']));
             unset($account);
         }
 
-        $missingSymbols = array_diff($stockSymbols, array_keys($config['shares']));
+        $missingIds = array_diff($stockIds, array_keys($config['stocks']));
 
-        if (count($missingSymbols) > 0) {
-            throw new BadConfigurationException(sprintf('Missing data for stocks: %s', join(', ', $missingSymbols)));
+        if (count($missingIds) > 0) {
+            throw new BadConfigurationException(sprintf('Missing data for stocks: %s', join(', ', $missingIds)));
         }
 
-        if (empty($stockPrices)) {
-            $stockPrices = $this->getStockPrices($stockSymbols);
-        }
+        $stockSymbols = array_map(function($id) use ($config) {
+            return $config['stocks'][$id]['symbol'];
+        }, $stockIds);
+
+        $stockPrices = $this->getStockPrices($stockSymbols);
 
         $processedAccounts = [];
 
@@ -61,7 +61,7 @@ class Processor
             foreach($account['holdings'] as $holdingId => $quantity) {
                 $holdingAssetClasses = [];
 
-                $holding = $config['shares'][$holdingId];
+                $holding = $config['stocks'][$holdingId];
 
                 if (is_array($holding['assetClass'])) {
                     foreach($holding['assetClass'] as $assetClassName => $percentage) {
@@ -126,35 +126,35 @@ class Processor
 
     /**
      * @param array $config
+     * @param array $portfolioConfig
      * @param array $rebalanceConfig
-     * @param array [$priceConfig]
      * @return array
      * @throws NotEnoughFundsException
      * @throws BadConfigurationException
      */
-    protected function processRebalance(array $config, array $rebalanceConfig, array $stockPrices = null): array
+    protected function processRebalance(array $config, array $portfolioConfig, array $rebalanceConfig): array
     {
-        $config['shares'] = array_merge_recursive($config['shares'], $rebalanceConfig['shares']);
-
-        $mainAccountListRef = &$config['accounts'];
+        $mainAccountListRef = &$portfolioConfig['accounts'];
         $rebalanceAccountList = $rebalanceConfig['accounts'];
 
-        $stockSymbols = [];
+        $stockIds = [];
 
         foreach($rebalanceAccountList as $account) {
-            $stockSymbols = array_merge($stockSymbols, array_keys($account['buyHoldings']), $account['sellHoldings']);
+            $stockIds = array_merge($stockIds, array_keys($account['buyHoldings']), $account['sellHoldings']);
             unset($account);
         }
 
-        $missingSymbols = array_diff($stockSymbols, array_keys($config['shares']));
+        $missingIds = array_diff($stockIds, array_keys($config['stocks']));
 
-        if (count($missingSymbols) > 0) {
-            throw new BadConfigurationException(sprintf('Missing data for stocks: %s', join(', ', $missingSymbols)));
+        if (count($missingIds) > 0) {
+            throw new BadConfigurationException(sprintf('Missing data for stocks: %s', join(', ', $missingIds)));
         }
 
-        if (empty($stockPrices)) {
-            $stockPrices = $this->getStockPrices($stockSymbols);
-        }
+        $stockSymbols = array_map(function($id) use ($config) {
+            return $config['stocks'][$id]['symbol'];
+        }, $stockIds);
+
+        $stockPrices = $this->getStockPrices($stockSymbols);
 
         foreach($rebalanceAccountList as $accountName => $account) {
             if (!array_key_exists($accountName, $mainAccountListRef)) {
@@ -178,21 +178,21 @@ class Processor
                 $holdingsToSell = [];
                 $sellValue = 0;
 
-                foreach($account['sellHoldings'] as $holdingId) {
-                    if (!isset($mainAccountRef['holdings'][$holdingId])) {
-                        throw new BadConfigurationException(sprintf('%s does not exist in account %s', $holdingId, $accountName));
+                foreach($account['sellHoldings'] as $stockId) {
+                    if (!isset($mainAccountRef['holdings'][$stockId])) {
+                        throw new BadConfigurationException(sprintf('%s does not exist in account %s', $stockId, $accountName));
                     }
 
-                    $quantity = $mainAccountRef['holdings'][$holdingId];
-                    $symbol = $config['shares'][$holdingId]['symbol'];
+                    $quantity = $mainAccountRef['holdings'][$stockId];
+                    $symbol = $config['stocks'][$stockId]['symbol'];
 
                     // todo support selling some shares but not all
                     $sellValue += $quantity * $stockPrices[$symbol];
-                    $fees += $config['tradingFee'];
+                    $fees += $portfolioConfig['tradingFee'];
 
-                    $holdingsToSell[] = $holdingId;
+                    $holdingsToSell[] = $stockId;
 
-                    unset($holdingId, $quantity, $symbol);
+                    unset($stockId, $quantity, $symbol);
                 }
 
                 $mainAccountRef['holdings'] = array_diff_key($mainAccountRef['holdings'], array_flip($holdingsToSell));
@@ -201,11 +201,11 @@ class Processor
                 unset($currentHoldings, $holdingsToSell, $sellValue);
             }
 
-            foreach($account['buyHoldings'] as $holdingId => $quantity) {
-                $cost += $quantity * $stockPrices[$config['shares'][$holdingId]['symbol']];
-                $fees += $config['tradingFee'];
+            foreach($account['buyHoldings'] as $stockId => $quantity) {
+                $cost += $quantity * $stockPrices[$config['stocks'][$stockId]['symbol']];
+                $fees += $portfolioConfig['tradingFee'];
 
-                unset($holdingId, $quantity);
+                unset($stockId, $quantity);
             }
 
             $cost += $fees;
@@ -218,19 +218,19 @@ class Processor
 
             $mainAccountRef['cash'] = $cashBalance;
 
-            foreach($account['buyHoldings'] as $holdingId => $quantity) {
-                if (!isset($mainAccountRef['holdings'][$holdingId])) {
-                    $mainAccountRef['holdings'][$holdingId] = 0;
+            foreach($account['buyHoldings'] as $stockId => $quantity) {
+                if (!isset($mainAccountRef['holdings'][$stockId])) {
+                    $mainAccountRef['holdings'][$stockId] = 0;
                 }
 
-                $mainAccountRef['holdings'][$holdingId] += $quantity;
+                $mainAccountRef['holdings'][$stockId] += $quantity;
 
-                unset($holdingId, $quantity);
+                unset($stockId, $quantity);
             }
         }
 
         // we used references to overwrite config properties
-        return $config;
+        return $portfolioConfig;
     }
 
     protected function getStockPrices(array $symbols): array {
