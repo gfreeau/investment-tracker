@@ -1,0 +1,17 @@
+config:
+    tradingFee: 6.95
+    assetClasses:
+        US Equity: 0.35
+        Canadian Equity: 0.15
+        International Equity: 0.25
+        Fixed Income: 0.25
+    accounts:
+        TFSA:
+            cash: 0.00
+            holdings:
+                VAB: 152
+                VXC: 328
+        Taxable:
+            cash: 0.00
+            holdings:
+                VCN: 50

@@ -1,0 +1,15 @@
+config:
+    accounts:
+        Retirement:
+            contribution: 1000
+            buyHoldings:
+                VAB: 71
+                VXC: 0
+            sellHoldings:
+                - VCN
+                - VRE
+        Taxable:
+            contribution: 5000
+            buyHoldings:
+                XIC: 150
+                XAW: 88

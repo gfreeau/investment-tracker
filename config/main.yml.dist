@@ -1,0 +1,17 @@
+config:
+    stocks:
+        VAB:
+            name: Vanguard Canadian Aggregate Bond Index ETF
+            symbol: VAB.TO
+            assetClass: Fixed Income
+        VCN:
+            name: Vanguard FTSE Canada All Cap Index ETF
+            symbol: VCN.TO
+            assetClass: Canadian Equity
+        VXC:
+            name: Vanguard FTSE All-World ex Canada Index ETF
+            symbol: VXC.TO
+            assetClass:
+                US Equity: 0.5464
+                International Equity: 0.4534
+                Canadian Equity: 0.0002
