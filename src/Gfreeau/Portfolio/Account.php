@@ -55,7 +55,8 @@ class Account
      */
     public function getHoldings(): array
     {
-        return $this->holdings;
+        // very import to call array_values to get numeric keys
+        return array_values($this->holdings);
     }
 
     public function getHoldingsValue(): float
@@ -66,5 +67,10 @@ class Account
     public function getAccountValue(): float
     {
         return $this->getCashValue() + $this->getHoldingsValue();
+    }
+
+    public function __toString(): string
+    {
+        return $this->getName();
     }
 }

@@ -12,7 +12,7 @@ use Ulrichsg\Getopt\Option;
 
 $getopt = new Getopt(array(
     (new Option('c', 'config', Getopt::REQUIRED_ARGUMENT))->setDefaultValue('config/config.json'),
-    (new Option(null, 'contribution-config', Getopt::REQUIRED_ARGUMENT)),
+    (new Option(null, 'rebalance-config', Getopt::REQUIRED_ARGUMENT)),
     (new Option(null, 'price-config', Getopt::REQUIRED_ARGUMENT)),
     (new Option('h', 'help')),
 ));
@@ -49,12 +49,12 @@ $processor = new \Gfreeau\Portfolio\Processor(
     new \Scheb\YahooFinanceApi\ApiClient()
 );
 
-$contributionConfig = $getopt->getOption('contribution-config') ? getConfig($getopt->getOption('contribution-config')) : null;
+$rebalanceConfig = $getopt->getOption('rebalance-config') ? getConfig($getopt->getOption('rebalance-config')) : null;
 $priceConfig = $getopt->getOption('price-config') ? getConfig($getopt->getOption('price-config')) : null;
 
 try {
-    $portfolio = $processor->process($config, $contributionConfig, $priceConfig);
-} catch (\Gfreeau\Portfolio\Exception\ContributionExceededException $e) {
+    $portfolio = $processor->process($config, $rebalanceConfig, $priceConfig);
+} catch (\Gfreeau\Portfolio\Exception\NotEnoughFundsException $e) {
     appError($e->getMessage());
 }
 
@@ -146,18 +146,32 @@ function showAccounts(Portfolio $portfolio) {
 function showAllHoldings(Portfolio $portfolio) {
     $data = [];
 
-    foreach ($portfolio->getAllHoldings() as $holding) {
-        $data[] = [
-            'holding'           => $holding->getName(),
-            'symbol'            => $holding->getSymbol(),
-            'quantity'          => $holding->getQuantity(),
-            'price'             => $holding->getPrice(),
-            'value'             => $holding->getValue(),
-            'currentAllocation' => $holding->getValue() / $portfolio->getHoldingsValue(),
-        ];
+    $accounts = $portfolio->getAccounts();
+
+    foreach ($accounts as $account) {
+        foreach ($account->getHoldings() as $holding) {
+            $data[] = [
+                'account'           => $account->getName(),
+                'holding'           => $holding->getName(),
+                'symbol'            => $holding->getSymbol(),
+                'quantity'          => $holding->getQuantity(),
+                'price'             => $holding->getPrice(),
+                'value'             => $holding->getValue(),
+                'currentAllocation' => $holding->getValue() / $portfolio->getHoldingsValue(),
+            ];
+        }
     }
 
-    usort($data, function($a, $b) {
+    $accountNames = array_flip(array_map(function(\Gfreeau\Portfolio\Account $account) {
+        return $account->getName();
+    }, $accounts));
+
+    // order by account as defined in the config and then by price
+    usort($data, function($a, $b) use($accountNames) {
+        $orderByAccount = $accountNames[$a['account']] <=> $accountNames[$b['account']];
+        if ($orderByAccount !== 0) {
+            return $orderByAccount;
+        }
         // asset class is the same, compare price
         return $b['value'] <=> $a['value'];
     });
@@ -165,6 +179,7 @@ function showAllHoldings(Portfolio $portfolio) {
     $table = new CliTable;
     $table->setTableColor('blue');
     $table->setHeaderColor('cyan');
+    $table->addField('Account',            'account',           false,                                                 'white');
     $table->addField('Holding',            'holding',           false,                                                 'white');
     $table->addField('Symbol',             'symbol',            false,                                                 'white');
     $table->addField('Quantity',           'quantity',          false,                                                 'white');

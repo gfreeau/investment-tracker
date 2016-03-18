@@ -2,7 +2,8 @@
 
 namespace Gfreeau\Portfolio;
 
-use Gfreeau\Portfolio\Exception\ContributionExceededException;
+use Gfreeau\Portfolio\Exception\BadConfigurationException;
+use Gfreeau\Portfolio\Exception\NotEnoughFundsException;
 use Scheb\YahooFinanceApi\ApiClient;
 
 class Processor
@@ -19,16 +20,18 @@ class Processor
 
     /**
      * @param array $config
-     * @param array $contributionConfig
+     * @param array $rebalanceConfig
      * @param array $stockPrices pass in a list of prices or we will get it from yahoo finance
      * @return Portfolio
      */
-    public function process(array $config, array $contributionConfig = null, array $stockPrices = null): Portfolio
+    public function process(array $config, array $rebalanceConfig = null, array $stockPrices = null): Portfolio
     {
+        // todo validate config
+
         $assetClasses = $this->processAssetClasses($config['assetClasses']);
 
-        if ($contributionConfig) {
-            $config = $this->processContribution($config, $contributionConfig, $stockPrices);
+        if ($rebalanceConfig) {
+            $config = $this->processRebalance($config, $rebalanceConfig, $stockPrices);
         }
 
         $accountData = $config['accounts'];
@@ -112,45 +115,46 @@ class Processor
 
     /**
      * @param array $config
-     * @param array $contributionConfig
+     * @param array $rebalanceConfig
      * @param array [$priceConfig]
      * @return array
-     * @throws ContributionExceededException
+     * @throws NotEnoughFundsException
+     * @throws BadConfigurationException
      */
-    protected function processContribution(array $config, array $contributionConfig, array $stockPrices = null): array
+    protected function processRebalance(array $config, array $rebalanceConfig, array $stockPrices = null): array
     {
+        // todo refactor this monolith
+
+        $rebalanceDefaults = [
+            'contribution' => 0,
+            'holdings' => [],
+            'sellHoldings' => [],
+        ];
+
+        $rebalanceConfig = array_merge($rebalanceDefaults, $rebalanceConfig);
+
+        if (!is_array($rebalanceConfig['holdings'])) {
+            throw new BadConfigurationException('holdings must be an array');
+        }
+
+        if (!is_array($rebalanceConfig['sellHoldings'])) {
+            throw new BadConfigurationException('sellHoldings must be an array');
+        }
+
         // reference is important
         $mainAccountData = &$config['accounts'];
-        $contributionAccountData = $contributionConfig['accounts'];
+        $rebalanceAccountData = $rebalanceConfig['accounts'];
 
-        $symbols = $this->getAllStockSymbols($contributionAccountData);
+        $symbols = $this->getAllStockSymbols($rebalanceAccountData);
 
         if (empty($stockPrices)) {
             $stockPrices = $this->getStockPrices($symbols);
         }
 
-        foreach($contributionAccountData as $name => $account) {
+        foreach($rebalanceAccountData as $name => $account) {
             if (!array_key_exists($name, $mainAccountData)) {
                 continue;
             }
-
-            $contribution = (float) $account['contribution'];
-            $cost = 0;
-            $fees = 0;
-
-            foreach($account['holdings'] as $holding) {
-                $cost += $holding['quantity'] * $stockPrices[$holding['symbol']];
-                $fees += $config['tradingFee'];
-            }
-
-            $cost += $fees;
-
-            // todo factor in any existing cash in the account
-            if ($cost > $contribution) {
-                throw new ContributionExceededException(sprintf('The cost of $%4.2f exceeds the contribution of $%4.2f to the "%s" account', $cost, $contribution, $name));
-            }
-
-            $unusedContribution = $contribution - $cost;
 
             // reference is important
             $mainAccount = &$mainAccountData[$name];
@@ -159,7 +163,54 @@ class Processor
                 $mainAccount['cash'] = 0;
             }
 
-            $mainAccount['cash'] += $unusedContribution;
+            $cashBalance = $mainAccount['cash'];
+            $cashBalance += $account['contribution'];
+
+            $fees = 0;
+
+            if (!empty($account['sellHoldings'])) {
+                $currentHoldings = array_column($mainAccount['holdings'], 'symbol');
+                $holdingsToSell = [];
+                $sellValue = 0;
+
+                foreach($account['sellHoldings'] as $sellHolding) {
+                    $holdingKey = array_search($sellHolding['symbol'], $currentHoldings);
+
+                    if ($holdingKey === false) {
+                        continue;
+                    }
+
+                    $holding = $mainAccount['holdings'][$holdingKey];
+
+                    // todo support selling some shares but not all
+                    $sellValue += $holding['quantity'] * $stockPrices[$sellHolding['symbol']];
+                    $fees += $config['tradingFee'];
+
+                    $holdingsToSell[] = $holdingKey;
+                }
+
+                $mainAccount['holdings'] = array_diff_key($mainAccount['holdings'], array_flip($holdingsToSell));
+                $cashBalance += $sellValue;
+
+                unset($currentHoldings, $holdingsToSell, $sellValue, $holdingKey, $holding);
+            }
+
+            $cost = 0;
+
+            foreach($account['holdings'] as $holding) {
+                $cost += $holding['quantity'] * $stockPrices[$holding['symbol']];
+                $fees += $config['tradingFee'];
+            }
+
+            $cost += $fees;
+
+            if ($cost > $cashBalance) {
+                throw new NotEnoughFundsException(sprintf('The cost of $%4.2f exceeds the available cash of $%4.2f in the "%s" account', $cost, $cashBalance, $name));
+            }
+
+            $cashBalance -= $cost;
+
+            $mainAccount['cash'] = $cashBalance;
 
             $mainAccount['holdings'] = array_merge($mainAccount['holdings'], $account['holdings']);
         }
