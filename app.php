@@ -26,6 +26,11 @@ if ($getopt->getOption('help')) {
     exit(0);
 }
 
+if (!$getopt->getOption('config') || !$getopt->getOption('portfolio-config')) {
+    echo $getopt->getHelpText();
+    exit(1);
+}
+
 function appError(string $message) {
     echo trim($message) . "\n";
     exit(1);
@@ -128,26 +133,42 @@ function showAssetClasses(Portfolio $portfolio) {
 
     $data = [];
 
+    $data[] = [
+        'name'              => 'Cash',
+        'currentAllocation' => $portfolio->getCashValue() / $portfolio->getTotalValue(),
+        'currentValue'      => $portfolio->getCashValue(),
+        'targetAllocation'  => 0,
+        'targetValue'       => 0,
+        'targetDiff'        => $portfolio->getCashValue(),
+    ];
+
     foreach($assetClasses as $assetClass) {
         $currentValue = array_reduce($holdings, function($value, Holding $holding) use($assetClass) {
             return $value + $holding->getAssetClassValue($assetClass);
         }, 0);
 
+        $targetValue = $assetClass->getTargetAllocation() * $portfolio->getTotalValue();
+        $targetValueDiff = $currentValue - $targetValue;
+
         $data[] = [
             'name'              => $assetClass->getName(),
-            'targetAllocation'  => $assetClass->getTargetAllocation(),
-            'currentAllocation' => $currentValue / $portfolio->getHoldingsValue(),
+            'currentAllocation' => $currentValue / $portfolio->getTotalValue(),
             'currentValue'      => $currentValue,
+            'targetAllocation'  => $assetClass->getTargetAllocation(),
+            'targetValue'       => $targetValue,
+            'targetDiff'        => $targetValueDiff,
         ];
     }
 
     $table = new CliTable;
     $table->setTableColor('blue');
     $table->setHeaderColor('cyan');
-    $table->addField('Asset Class',        'name',              false,                                                 'white');
-    $table->addField('Target Allocation',  'targetAllocation',  new \Gfreeau\Portfolio\CliTableManipulator('percent'), 'white');
-    $table->addField('Current Allocation', 'currentAllocation', new \Gfreeau\Portfolio\CliTableManipulator('percent'), 'white');
-    $table->addField('Current Value',      'currentValue',      new CliTableManipulator('dollar'),                     'white');
+    $table->addField('Asset Class',        'name',              false,                                                    'white');
+    $table->addField('Current Allocation', 'currentAllocation', new \Gfreeau\Portfolio\CliTableManipulator('percent'),    'white');
+    $table->addField('Target Allocation',  'targetAllocation',  new \Gfreeau\Portfolio\CliTableManipulator('percent'),    'white');
+    $table->addField('Current Value',      'currentValue',      new CliTableManipulator('dollar'),                        'white');
+    $table->addField('Target Value',       'targetValue',       new CliTableManipulator('dollar'),                        'white');
+    $table->addField('Target Difference',  'targetDiff',        new \Gfreeau\Portfolio\CliTableManipulator('dollarDiff'), 'white');
     $table->injectData($data);
     $table->display();
 }
@@ -214,8 +235,8 @@ function showAllHoldings(Portfolio $portfolio) {
     $table->setTableColor('blue');
     $table->setHeaderColor('cyan');
     $table->addField('Account',            'account',           false,                                                 'white');
-    $table->addField('Holding',            'holding',           false,                                                 'white');
     $table->addField('Symbol',             'symbol',            false,                                                 'white');
+    $table->addField('Holding',            'holding',           false,                                                 'white');
     $table->addField('Quantity',           'quantity',          false,                                                 'white');
     $table->addField('Price',              'price',             new CliTableManipulator('dollar'),                     'white');
     $table->addField('Value',              'value',             new CliTableManipulator('dollar'),                     'white');
@@ -233,7 +254,8 @@ function whatCouldIBuy(Portfolio $portfolio) {
 
     foreach ($portfolio->getAllHoldings() as $holding) {
         $row = [
-            'symbol'            => $holding->getSymbol(),
+            'symbol' => $holding->getSymbol(),
+            'price'  => $holding->getPrice(),
         ];
 
         foreach($accounts as $account) {
@@ -247,7 +269,8 @@ function whatCouldIBuy(Portfolio $portfolio) {
     $table = new CliTable;
     $table->setTableColor('blue');
     $table->setHeaderColor('cyan');
-    $table->addField('Symbol', 'symbol', false, 'white');
+    $table->addField('Symbol', 'symbol', false,                             'white');
+    $table->addField('Price',  'price',  new CliTableManipulator('dollar'), 'white');
     foreach($accounts as $account) {
         $table->addField($account->getName(), $account->getName(), false, 'white');
     }

@@ -17,4 +17,20 @@ class CliTableManipulator extends BaseCliTableManipulator
 
         return sprintf('%4.2f', $value) . '%';
     }
+
+    public function DollarDiff($value)
+    {
+        $sign = '';
+
+        if ($value > 0) {
+            $sign = '+';
+        } else if ($value < 0) {
+            $sign = '-';
+        }
+
+        $value = number_format(abs($value), 2);
+        $value = $sign . '$' . $value;
+
+        return $value;
+    }
 }

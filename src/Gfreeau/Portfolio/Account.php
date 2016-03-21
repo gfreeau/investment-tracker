@@ -6,13 +6,15 @@ class Account
 {
     protected $name;
     protected $cashValue = 0;
+    protected $tradingFee = 0;
     protected $holdings = [];
     protected $holdingsValue = 0;
 
-    public function __construct(string $name, float $cashValue, array $holdings)
+    public function __construct(string $name, float $cashValue, float $tradingFee, array $holdings)
     {
         $this->name = $name;
         $this->cashValue = $cashValue;
+        $this->tradingFee = $tradingFee;
 
         foreach($holdings as $holding)
         {
@@ -67,6 +69,11 @@ class Account
     public function getAccountValue(): float
     {
         return $this->getCashValue() + $this->getHoldingsValue();
+    }
+
+    public function getTradingFee(): float
+    {
+        return $this->tradingFee;
     }
 
     public function __toString(): string

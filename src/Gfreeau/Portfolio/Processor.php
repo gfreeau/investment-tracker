@@ -93,6 +93,7 @@ class Processor
             $processedAccounts[] = new Account(
                 $accountName,
                 $account['cash'],
+                $portfolioConfig['tradingFee'],
                 $processedHoldings
             );
 
